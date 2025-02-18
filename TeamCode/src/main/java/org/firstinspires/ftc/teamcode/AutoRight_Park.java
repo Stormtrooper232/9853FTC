@@ -29,19 +29,13 @@
 
 package org.firstinspires.ftc.teamcode;
 
-import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotor.RunMode;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
-import com.qualcomm.robotcore.hardware.Servo;
-import com.qualcomm.robotcore.hardware.TouchSensor;
 import com.qualcomm.robotcore.util.ElapsedTime;
-import com.qualcomm.robotcore.util.Range;
-
-import org.openftc.easyopencv.PipelineRecordingParameters;
 
 
 /*
@@ -57,9 +51,9 @@ import org.openftc.easyopencv.PipelineRecordingParameters;
  * Remove or comment out the @Disabled line to add this OpMode to the Driver Station OpMode list
  */
 
-@TeleOp(name="Tele", group="Linear OpMode")
+@TeleOp(name="AutoRight_Park", group="Linear OpMode")
 //@Disabled
-public class ArmControl extends LinearOpMode {
+public class AutoRight_Park extends LinearOpMode {
 
     // Declare OpMode members.
     private ElapsedTime runtime = new ElapsedTime();
@@ -79,11 +73,9 @@ public class ArmControl extends LinearOpMode {
     private  CRServo intakeFront = null;
     private  CRServo intakeBack = null;
 
-    private  Servo bucket = null;
+    private  CRServo bucket = null;
 
-    private  Servo wrist = null;
-    private Servo wristLeft = null;
-    private Servo wristRight = null;
+    private  CRServo rotation = null;
     private  DcMotor bar = null;
 
     private DcMotor leftBar = null;
@@ -93,9 +85,6 @@ public class ArmControl extends LinearOpMode {
     private  DcMotor hang = null;
 
     private CRServo hook = null;
-
-    private TouchSensor leftBarSensor = null;
-    private TouchSensor rightBarSensor = null;
 
 
 
@@ -141,21 +130,15 @@ public class ArmControl extends LinearOpMode {
 
         intakeFront = hardwareMap.get(CRServo.class, "intakeFront");
         intakeBack = hardwareMap.get(CRServo.class, "intakeBack");
-        arm = hardwareMap.get(DcMotor.class, "arm");
-        bucket = hardwareMap.get(Servo.class, "bucket");
-        wrist = hardwareMap.get(Servo.class, "wrist");
-        wristLeft = hardwareMap.get(Servo.class, "wristLeft");
-        wristRight = hardwareMap.get(Servo.class, "wristRight");
+        bar = hardwareMap.get(DcMotor.class, "bar");
+        bucket = hardwareMap.get(CRServo.class, "bucket");
+        rotation = hardwareMap.get(CRServo.class, "rotation");
 
         hook = hardwareMap.get(CRServo.class, "hook");
         hang = hardwareMap.get(DcMotor.class, "hang");
 
-
-        //rightBar = hardwareMap.get(DcMotor.class, "rightBar");
-        //leftBar = hardwareMap.get(DcMotor.class, "leftBar");
-        leftBarSensor = hardwareMap.get(TouchSensor.class, "leftBarSensor");
-        rightBarSensor = hardwareMap.get(TouchSensor.class, "rightBarSensor");
-
+        rightBar = hardwareMap.get(DcMotor.class, "rightBar");
+        leftBar = hardwareMap.get(DcMotor.class, "leftBar");
 
 
         // To drive forward, most robots need the motor on one side to be reversed, because the axles point in opposite directions.
@@ -165,175 +148,129 @@ public class ArmControl extends LinearOpMode {
         frontLeft.setDirection(DcMotor.Direction.FORWARD);
         frontRight.setDirection(DcMotor.Direction.REVERSE);
         backRight.setDirection(DcMotor.Direction.REVERSE);
+        rotation.setDirection(DcMotorSimple.Direction.FORWARD);
         hang.setDirection(DcMotorSimple.Direction.FORWARD);
 
-        //leftBar.setDirection(DcMotorSimple.Direction.FORWARD);
-        //rightBar.setDirection(DcMotorSimple.Direction.REVERSE);
-        arm.setDirection(DcMotorSimple.Direction.FORWARD);
+        leftBar.setDirection(DcMotorSimple.Direction.REVERSE);
+        rightBar.setDirection(DcMotorSimple.Direction.FORWARD);
 
 
         // set other mechanism's direction
         int barTarget = 0;
         int target = 0;
-        int hangTarget = 0;
-        double rotationTarget = 0;
-        boolean rotationOverride = false;
-        int scoreMacro = 0;
-
-        hang.setTargetPosition(hangTarget);
-        hang.setMode(RunMode.STOP_AND_RESET_ENCODER);
-        hang.setMode(RunMode.RUN_TO_POSITION);
-        //leftBar.setTargetPosition(barTarget);
-        //leftBar.setMode(RunMode.STOP_AND_RESET_ENCODER);
-        //leftBar.setMode(RunMode.RUN_TO_POSITION);
-        //rightBar.setTargetPosition(barTarget);
-        //rightBar.setMode(RunMode.STOP_AND_RESET_ENCODER);
-        //rightBar.setMode(RunMode.RUN_TO_POSITION);
+        leftBar.setTargetPosition(barTarget);
+        leftBar.setMode(RunMode.STOP_AND_RESET_ENCODER);
+        leftBar.setMode(RunMode.RUN_TO_POSITION);
+        rightBar.setTargetPosition(barTarget);
+        rightBar.setMode(RunMode.STOP_AND_RESET_ENCODER);
+        rightBar.setMode(RunMode.RUN_TO_POSITION);
         intakeFront.setDirection(DcMotorSimple.Direction.FORWARD);
         intakeBack.setDirection(DcMotorSimple.Direction.REVERSE);
-        arm.setTargetPosition(target);
-        arm.setMode(RunMode.STOP_AND_RESET_ENCODER);
-        arm.setMode(RunMode.RUN_TO_POSITION);
+        bar.setTargetPosition(target);
+        bar.setMode(RunMode.STOP_AND_RESET_ENCODER);
+        bar.setMode(RunMode.RUN_TO_POSITION);
 
 
-        //int currentPos = leftBar.getCurrentPosition();
+        int currentPos = leftBar.getCurrentPosition();
         // set Vars
 
         // Wait for the game to start (driver presses START)
         waitForStart();
         runtime.reset();
-        boolean score = false;
-        int timeTurn = 0;
+        int timer = 0;
         boolean turnTime = false;
-        wrist.setPosition(0.5);
+        int timeTurn = 0;
+        boolean score = false;
+        boolean raise = false;
+
+
 
         // run until the end of the match (driver presses STOP)
         while (opModeIsActive()) {
-            arm.setPower(1);
-            //leftBar.setMode(RunMode.RUN_TO_POSITION);
-            //rightBar.setMode(RunMode.RUN_TO_POSITION);
-            double intakePower =  gamepad2.left_trigger - gamepad2.right_trigger;
-            double bucketTarget = (-gamepad2.right_stick_x+1);
-            double y = gamepad1.left_stick_y; // Remember, Y stick value is reversed
-            double x = -gamepad1.left_stick_x ; // Counteract imperfect strafing *1.1
-            double rx = gamepad1.right_stick_x;
-            boolean leftBarDown = leftBarSensor.isPressed();
-            boolean rightBarDown = rightBarSensor.isPressed();
+            timer+=1;
 
 
+
+
+
+
+            // robot movement set code
+            double y = 0; // Remember, Y stick value is reversed
+            double x = 0 ; // Counteract imperfect strafing *1.1
+            double rx = 0;
             // Denominator is the largest motor power (absolute value) or 1
             // This ensures all the powers maintain the same ratio,
             // but only if at least one is out of the range [-1, 1]
-            double denominator = Math.max(Math.abs(y) + Math.abs(x) + Math.abs(rx), 1);
-            double frontLeftPower = ((y + x + rx) / denominator);
-            double backLeftPower = ((y - x + rx) / denominator);
-            double frontRightPower = (y - x - rx) / denominator;
-            double backRightPower = (y + x - rx) / denominator;
 
 
-            if (gamepad2.right_bumper && barTarget < 0){ barTarget += 47;}
-            if (gamepad2.left_bumper && barTarget > -5200){ barTarget += -47;}
-
-            if(!rotationOverride){rotationTarget=(gamepad2.right_stick_y*0.87+0.13);}
-
-            if (!rotationOverride){target -= 12*gamepad2.left_stick_y;}
-            if (target > 0) {target = 0;}
-            if (target < -300) {target = -300;}
-
-            if (gamepad2.x){
-                target = -55;
-                rotationTarget = 1;
-                scoreMacro = 0;
-                rotationOverride = true;
-            }
-            if(rotationOverride){
-                arm.setPower(0.3);
-                intakePower=-1;
-            }
-
-            if (rotationOverride && arm.getCurrentPosition() > -65){
-                intakePower = 1;
-                rotationTarget = 1;
-                scoreMacro++;
-                if (scoreMacro==15){
-                    target = -220;
-                    rotationOverride = false;
-                    scoreMacro=0;
-
-                }
-            }
+            double intakePower =  0;
+            double bucketPower = 0;
 
 
             intakeFront.setPower(intakePower);
             intakeBack.setPower(intakePower);
-            //leftBar.setPower(1);
-            //rightBar.setPower(1);
-            hook.setPower(-(gamepad1.right_trigger - gamepad1.left_trigger));
-            if (gamepad1.left_bumper){hangTarget+=80;}
-            if (gamepad1.right_bumper){hangTarget-=80;}
+            bar.setTargetPosition(target);
+            bar.setPower(1);
+            leftBar.setPower(1);
+            rightBar.setPower(1);
+            rotation.setPower(0);
+            hook.setPower(0);
 
-            hang.setTargetPosition(hangTarget);
-            hang.setPower(1);
+            leftBar.setTargetPosition(barTarget);
+            rightBar.setTargetPosition(barTarget);
 
-            if (gamepad2.y){score = true; barTarget = -5200; timeTurn = 0;}
+            if (raise){score = true; barTarget = -5200; timeTurn = 0; }
+            raise = false;
 
             if (score){
                 if (turnTime) { timeTurn+=1;}
-                bucketTarget = 0.6;
-                if (rightBar.getCurrentPosition() <= -4000 && timeTurn<33){
-                    bucketTarget = 0;
+                if (leftBar.getCurrentPosition() <= -5100){
+                    bucketPower = -1;
                     turnTime = true;
+                }
+                if (timeTurn > 31){
+                    bucketPower = 1;
                 }
                 if (timeTurn > 40){
                     barTarget = 0;
-                    bucketTarget = 0.95;
                 }
-                if (timeTurn > 30 && rightBar.getCurrentPosition()>-15){
+                if (timeTurn > 66){
                     score = false;
                     turnTime = false;
                 }
             }
 
-            //leftBar.setTargetPosition(barTarget);
-            //rightBar.setTargetPosition(barTarget);
-            if (barTarget == 0){
-                //leftBar.setPower(0.5);
-                //rightBar.setPower(0.5);
 
-                if(!leftBarDown){
-                    //leftBar.setTargetPosition(2000);
-                }else{
-                    //leftBar.setMode(RunMode.STOP_AND_RESET_ENCODER);
-                }
-                if(!rightBarDown){
-                    //rightBar.setTargetPosition(2000);
-                }else{
-                    //rightBar.setMode(RunMode.STOP_AND_RESET_ENCODER);
-                }
+            // step by step
+
+            // move left
+            if (timer < 80) {
+                y = -0.06;
+                x = -0.5;
+            } else if (timer < 110) {
+                y = 0.3;
             }
 
-            wrist.setPosition(gamepad2.left_stick_x);
-            wristLeft.setPosition((gamepad2.right_stick_y+1)/2);
-            wristRight.setPosition(1-(gamepad2.right_stick_y+1)/2);
 
-
-            bucket.setPosition(bucketTarget);
+            double denominator = Math.max(Math.abs(y) + Math.abs(x) + Math.abs(rx), 1);
+            double frontLeftPower = ((y + x + rx) / denominator);
+            double backLeftPower = ((y - x + rx) / denominator);
+            double frontRightPower = (y - x - rx) / denominator;
+            double backRightPower = (y + x - rx) / denominator;
+            bucket.setPower(bucketPower);
             frontLeft.setPower(frontLeftPower);
             backLeft.setPower(backLeftPower);
             frontRight.setPower(frontRightPower);
             backRight.setPower(backRightPower);
-            arm.setTargetPosition(target);
             telemetry.addData("Status", "Run Time: " + runtime.toString());
+            telemetry.addData("Bar Pos", bar.getCurrentPosition());
             telemetry.addData("Bar target", barTarget);
+            telemetry.addData("rightBar", rightBar.getCurrentPosition());
+            telemetry.addData("rightBar", rightBar.getTargetPosition());
+            telemetry.addData("barPos", target);
 
-            //telemetry.addData("LeftbarPos", leftBar.getCurrentPosition());
-            //telemetry.addData("RightbarPos", rightBar.getCurrentPosition());
-            telemetry.addData("leftDown", leftBarDown);
-            telemetry.addData("rightDown", rightBarDown);
-            telemetry.addData("armPos", arm.getCurrentPosition());
-            telemetry.addData("Bucket Power", bucketTarget);
-            telemetry.addData("target", target);
-            telemetry.addData("rotation", rotationTarget);
+            telemetry.addData("speed", currentPos-leftBar.getCurrentPosition());
+
             telemetry.update();
         }
 
